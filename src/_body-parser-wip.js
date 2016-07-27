@@ -14,7 +14,7 @@ const parser = (typ, buf) => {
 const read = (stream, typ, size, max_read) => {
   const encoding = "utf8"
   const buf = Buffer.from("", encoding)
-  const len = 0
+  let len = 0
 
   if (max_read === undefined) max_read = 0
 

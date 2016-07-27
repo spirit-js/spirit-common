@@ -46,10 +46,11 @@ describe("body-parser", () => {
       .send("id=1")
       .end((err, res) => {
         expect(res.status).toBe(200)
-        expect(result).toEqual({
-          name: "hi",
-          id: "1"
-        })
+        expect(result).not.toBe(null)
+        expect(typeof result).toBe("object")
+        expect(Object.keys(result).length).toBe(2)
+        expect(result.name).toEqual("hi")
+        expect(result.id).toEqual("1")
         done()
       })
   })
