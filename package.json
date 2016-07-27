@@ -30,6 +30,8 @@
   },
   "dependencies": {
     "bluebird": "^3.4.1",
-    "co-body": "^4.2.0"
+    "inflation": "^2.0.0",
+    "raw-body": "^2.1.7",
+    "type-is": "^1.6.13"
   }
 }
