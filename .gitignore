@@ -3,5 +3,4 @@ node_modules
 notes
 benchmarks/runner
 coverage/
-
 npm-debug.log
