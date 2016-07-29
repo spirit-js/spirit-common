@@ -1,6 +1,23 @@
 const session = require("express-session")
 const utils = require("./session-utils")
+const debug = require("debug")("spirit-common-session")
+const uid = require("uid-safe").sync
 
+
+const signature = require("cookie-signature")
+function unsigncookie(val, secrets) {
+  for (var i = 0; i < secrets.length; i++) {
+    var result = signature.unsign(val, secrets[i]);
+
+    if (result !== false) {
+      return result;
+    }
+  }
+
+  return false;
+}
+
+const cookie = require("cookie")
 // https://github.com/expressjs/session/blob/master/index.js#L486
 function getcookie(req, name, secrets) {
   var header = req.headers.cookie;
@@ -30,10 +47,6 @@ function getcookie(req, name, secrets) {
   // back-compat read from cookieParser() signedCookies data
   if (!val && req.signedCookies) {
     val = req.signedCookies[name];
-
-    if (val) {
-      deprecate('cookie should be available in req.headers.cookie');
-    }
   }
 
   // back-compat read from cookieParser() cookies data
@@ -43,10 +56,6 @@ function getcookie(req, name, secrets) {
     if (raw) {
       if (raw.substr(0, 2) === 's:') {
         val = unsigncookie(raw.slice(2), secrets);
-
-        if (val) {
-          deprecate('cookie should be available in req.headers.cookie');
-        }
 
         if (val === false) {
           debug('cookie signature invalid');
@@ -62,26 +71,41 @@ function getcookie(req, name, secrets) {
 }
 
 function generateSessionId(sess) {
-  //return uid(24);
-}
-
-const debug = () => {
-  
+  return uid(24)
 }
 
 module.exports = (opts) => {
   opts = opts || {}
+  // get the cookie options
+  var cookieOptions = opts.cookie || {}
+
+  // get the session id generate function
+  var generateId = opts.genid || generateSessionId
+
+  // get the session cookie name
+  var name = opts.name || opts.key || 'connect.sid'
+  // get the trust proxy setting
+  var trustProxy = opts.proxy
+  // get the rolling session option
+  var rollingSessions = Boolean(opts.rolling)
+  // get the resave session option
+  var resaveSession = opts.resave;
+
+  // get the save uninitialized session option
+  var saveUninitializedSession = opts.saveUninitialized
+
+  var secret = opts.secret
 
   const store = opts.store || new session.MemoryStore()
 
-  const storeReady = true
+  let storeReady = true
 
   store.on("disconnect", () => {
-    store_ready = false
+    storeReady = false
   })
 
   store.on("connect", () => {
-    store_ready = true
+    storeReady = true
   })
 
   return (handler) => {
@@ -118,50 +142,15 @@ module.exports = (opts) => {
       // get the session ID from the cookie
       const cookieId = request.sessionID = getcookie(request, name, secrets);
 
-
-      // generate a session if the browser doesn't send a sessionID
-      if (!request.sessionID) {
-        debug('no SID sent, generating session');
-        generate();
-        // return
-      } else {
-        // generate the session object
-        debug('fetching %s', req.sessionID);
-        store.get(req.sessionID, function(err, sess){
-          // error handling
-          if (err) {
-            debug('error %j', err);
-
-            if (err.code !== 'ENOENT') {
-              next(err);
-              return;
-            }
-
-            generate();
-            // no session
-          } else if (!sess) {
-            debug('no session found');
-            generate();
-            // populate req.session
-          } else {
-            debug('session found');
-            store.createSession(req, sess);
-            originalId = req.sessionID;
-            originalHash = hash(sess);
-
-            if (!resaveSession) {
-              savedHash = originalHash
-            }
-            wrapmethods(req.session);
-          }
-
-          // return async
-        })
+      const generate = () => {
+        store.generate(request)
+        originalId = request.sessionID
+        originalHash = utils.hash(request.session)
+        utils.wrapmethods(request.session)
       }
 
       /////////// this is the 'return' response flow back
-
-      return handler(request).then((response) => {
+      function resp(response) {
         if (!request.session) {
           debug("no session")
           return response
@@ -182,31 +171,66 @@ module.exports = (opts) => {
         utils.setcookie(response, name, request.sessionID, secrets[0], request.session.cookie.data)
 
         if (utils.shouldDestroy(request)) {
-          debug("destroying");
+          debug("destroying")
           store.destroy(request.sessionID, function ondestroy(err) {
-            if (err) {
-              defer(next, err)
-            }
+            if (err) throw err
             debug("destroyed")
           })
         } else if (utils.shouldSave(request)) {
           request.session.save(function onsave(err) {
-            if (err) {
-              defer(next, err);
-            }
+            if (err) throw err
           })
         } else if (utils.storeImplementsTouch && utils.shouldTouch(request)) {
           // store implements touch method
           debug("touching")
           store.touch(request.sessionID, request.session, function ontouch(err) {
-            if (err) {
-              defer(next, err);
-            }
+            if (err) throw err
             debug("touched")
           })
         }
 
         return response
+      }
+
+
+
+      // generate a session if the browser doesn't send a sessionID
+      if (!request.sessionID) {
+        debug("no SID sent, generating session")
+        generate()
+        return handler(request).then(resp)
+      }
+
+      return new Promise(function(resolve, reject) {
+          // generate the session object
+          debug("fetching %s", request.sessionID)
+          store.get(request.sessionID, function(err, sess){
+            // error handling
+            if (err) {
+              debug("error %j", err)
+
+              if (err.code !== 'ENOENT') {
+                return reject(err)
+              }
+
+              generate()
+              // no session
+            } else if (!sess) {
+              debug("no session found")
+              generate()
+              // populate req.session
+            } else {
+              debug("session found")
+              store.createSession(request, sess)
+              originalId = request.sessionID
+              originalHash = utils.hash(sess)
+
+              if (!resaveSession) savedHash = originalHash
+              utils.wrapmethods(request.session)
+            }
+
+            resolve(handler(request).then(resp))
+          })
       })
     }
   }

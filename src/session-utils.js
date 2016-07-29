@@ -2,7 +2,7 @@
  * Utility functions from express-session session()
  * Factored out to make it easier to read in session.js
  */
-
+const debug = require("debug")("spirit-common-session")
 
 // wrap session methods
 function wrapmethods(sess) {
@@ -22,14 +22,6 @@ function wrapmethods(sess) {
   });
 }
 
-const generate = (request, store) => {
-  store.generate(request);
-  originalId = request.sessionID;
-  originalHash = hash(request.session);
-  wrapmethods(request.session);
-  return // originalId, originalHash
-}
-
 // check if session has been modified
 const isModified = (sess, originalId, originalHash) => {
   return originalId !== sess.id || originalHash !== hash(sess);
@@ -41,7 +33,7 @@ const isSaved = (sess, originalId, savedHash) => {
 }
 
 // determine if session should be saved to store
-const shouldSave = (req) => {
+const shouldSave = (req, saveUninitializedSession, cookieId) => {
   // cannot set cookie without a session ID
   if (typeof req.sessionID !== 'string') {
     debug('session ignored because of bogus req.sessionID %o', req.sessionID);
@@ -54,7 +46,7 @@ const shouldSave = (req) => {
 }
 
 // determine if session should be destroyed
-const shouldDestroy = (req) => {
+const shouldDestroy = (req, unsetDestroy) => {
   return req.sessionID && unsetDestroy && req.session == null;
 }
 
@@ -69,7 +61,7 @@ const shouldTouch = (req, cookieId) => {
 }
 
 // determine if cookie should be set on response
-const shouldSetCookie = (req, cookieId) => {
+const shouldSetCookie = (req, cookieId, saveUninitializedSession, rollingSessions) => {
   // cannot set cookie without a session ID
   if (typeof req.sessionID !== 'string') {
     return false;
@@ -84,7 +76,8 @@ const shouldSetCookie = (req, cookieId) => {
  * Functions that are private in express-session
  */
 const crc = require("crc").crc32
-
+const cookie = require("cookie")
+const signature = require("cookie-signature")
 
 function setcookie(res, name, val, secret, options) {
   const signed = 's:' + signature.sign(val, secret)
@@ -138,7 +131,7 @@ function issecure(req, trustProxy) {
 }
 
 module.exports = {
-  generate,
+  wrapmethods,
   isModified,
   isSaved,
   shouldSave,
