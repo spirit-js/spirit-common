@@ -1,4 +1,4 @@
-const parser = require("../lib/body-parser")
+const parser = require("../../lib/body-parser")
 
 const spirit = require("spirit")
 const http = require("http")
