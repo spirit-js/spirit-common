@@ -35,7 +35,7 @@ module.exports = (handler) => {
   return (request) => {
     const t = new Date()
 
-    const tag = reqtag(t.getTime() + request.method + request.url)
+    const tag = reqtag(t.getTime().toString() + request.method + request.url)
 
     console.log(prefix_in, tag, request.method, request.url)
 
