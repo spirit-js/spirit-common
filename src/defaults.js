@@ -31,7 +31,7 @@ const config = (key) => {
     session: {
       secret: random_string(), // user should pass their own
       //secure: true, // ssl sites should enable this
-      //store: ...,   // NOTE user needs to pass in this always
+      //store: ...,   // NOTE user should pass in this always
       resave: false,
       saveUninitialized: true,
       httpOnly: true
@@ -68,7 +68,7 @@ const generate = (cfg, mwlist) => {
     let opts = cfg[mw_item.name]
 
     // switch to sub key
-    if (mw_item.x) opts = opts[mw_item.x]
+    if (opts && mw_item.x) opts = opts[mw_item.x]
 
     if (opts) {
       let middleware = mw_item.fn

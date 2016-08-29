@@ -1,6 +1,10 @@
-const def = require("../lib/defaults")
+//const def = require("../lib/defaults")
+const rewire = require("rewire")
+const def = rewire("../lib/defaults")
 
-describe("defaults", () => {
+const spirit = require("spirit")
+
+describe("defaults internal", () => {
   let _config = {}
   let _mwlist = []
 
@@ -30,43 +34,114 @@ describe("defaults", () => {
       { name: "c", x: "d", fn: ()=>{} },
       { name: "c", x: "f", fn: ()=>{} },
       { name: "log", fn: make_test_middleware("log") },
-      { name: "ifmod", fn: make_test_middleware("ifmod") }
+      { name: "ifmod", fn: make_test_middleware("ifmod") },
     ]
   })
 
   describe("defaults", () => {
-    let _middleware_list = def.middleware_list
+    const _middleware_list = def.middleware_list
+    let mock_req
 
     beforeEach(() => {
-      def.middleware_list = _mwlist
+      mock_req = {
+        called: "",
+        headers: {},
+        req: () => { return mock_req }
+      }
+      def.__set__("middleware_list", _mwlist)
     })
 
-    afterAll(() => {
-      def.middleware_list = _middleware_list
+    afterEach(() => {
+      def.__set__("middleware_list", _middleware_list)
     })
 
-    it("returns a middleware that runs through a set of middlewares", (done) => {
+    it("returns a middleware that runs through a set of middlewares in correct order", (done) => {
       const middleware = def.defaults("api")
       expect(typeof middleware).toBe("function")
       expect(middleware.length).toBe(1)
       const handler = (req) => {
         expect(req.called).toBe("_log_ifmod")
-        done()
+        return "ok"
       }
       const fn = middleware(handler)
-      const mock_req = {
-        called: "init",
-        headers: {},
-        req: () => { return mock_req }
-      }
-      fn(mock_req)
+
+      fn(mock_req).then((resp) => {
+        expect(resp).toBe("ok_ifmod_log")
+        done()
+      })
     })
 
-    it("handles promise errors appropriately")
+    it("handles promise errors appropriately", (done) => {
+      const middleware = def.defaults("site")
+      const handler = (req) => {
+        expect(req.called).toBe("_log_ifmod")
+        throw "ok"
+      }
+      const fn = middleware(handler)
 
-    it("order of middlewares is normal")
+      fn(mock_req).catch((err) => {
+        expect(err).toBe("ok")
+        done()
+      })
+    })
 
-    it("return order of middleware is normal")
+    // basically, it can be re-used with spirit.compose
+    it("returns a middleware than can be composed again", (done) => {
+      let should_throw = false
+      const defaults = def.defaults("api")
+      const handler = (req) => {
+        if (should_throw) throw "err"
+
+        expect(req.called).toBe("_log_ifmod_custom")
+        should_throw = true
+        return "ok"
+      }
+      const test_mw = make_test_middleware("custom")
+      const comp = spirit.compose(handler, [defaults, test_mw])
+
+      comp(mock_req).then((resp) => {
+        expect(resp).toBe("ok_custom_ifmod_log")
+        comp(mock_req).catch((err) => {
+          expect(err).toBe("err")
+          done()
+        })
+      })
+    })
+
+    it("works fine with express middleware (they are wrapped correctly)", (done) => {
+      const make_express_mw = (test_str) => {
+        return (options) => {
+          return (req, res, next) => {
+            req.called += "_" + test_str
+            mock_req.options.push(options)
+            next()
+          }
+        }
+      }
+
+      _mwlist.push({ name: "session", fn: make_express_mw("session"), express: true })
+      _mwlist.push({ name: "body", x: "json", fn: make_express_mw("body-json"), express: true })
+      _mwlist.push({ name: "body", x: "urlencoded", fn: make_express_mw("body-urlencoded"), express: true })
+
+      const comp = def.defaults("site")
+      const handler = (req) => {
+        expect(req.called).toBe("_log_ifmod_session_body-json_body-urlencoded")
+        return "ok"
+      }
+      const fn = comp(handler)
+
+      mock_req.options = []
+      fn(mock_req).then((resp) => {
+        expect(resp).toBe("ok_ifmod_log")
+        // quick tests to test express middleware was initialized
+        // with options set by "site" config
+        expect(mock_req.options[0].httpOnly).toBe(true)
+        expect(mock_req.options[1]).toEqual({ strict: true })
+        expect(mock_req.options[2]).toEqual({ extended: true })
+        done()
+      })
+    })
+
   })
 
   describe("generate", () => {
