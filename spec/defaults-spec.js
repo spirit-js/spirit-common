@@ -154,7 +154,7 @@ describe("defaults internal", () => {
       expect(mw[2]).toBe(_mwlist[2].fn)
     })
 
-    it("when express key exist, it applies options and wraps itwith spirit-express", (done) => {
+    it("when express key exist, it applies options and wraps it with spirit-express", (done) => {
       _config = {
         test: {
           x1: { a: 1, b: 2 },
@@ -201,6 +201,7 @@ describe("defaults internal", () => {
       mw = def.generate(_config, _mwlist)
       expect(mw.length).toBe(0)
     })
+
   })
 
   describe("mixin", () => {
@@ -218,6 +219,10 @@ describe("defaults internal", () => {
       expect(set.a).toBe(false)
       expect(set.c.f).toBe(false)
     })
+
+    // prevent overriding default configs with "true" property
+    // when the default property is a object
+    it("passing true to a config parameter that isn't bool by default will not set true as the paramter, instead leaves the default object untouched")
   })
 
   describe("config", () => {
@@ -267,19 +272,24 @@ describe("defaults internal", () => {
       expect(() => {
         const cfg = def.config("123")
       }).toThrowError(/No such configuration/)
+
+      expect(() => {
+        const cfg = def.config()
+      }).toThrowError(/No such configuration/)
+
+      expect(() => {
+        const cfg = def.config("")
+      }).toThrowError(/No such configuration/)
     })
 
-    it("undefined argument or '' defaults to site config", () => {
-      const cfg = def.config()
-      const cfg2 = def.config("site")
-
-      // everything will match except the session secret key
-      // so test the non match and delete to make it easier to match
-      expect(cfg.session.secret).not.toEqual(cfg2.session.secret)
-      delete cfg.session.secret
-      delete cfg2.session.secret
-
-      expect(cfg).toEqual(cfg2)
+    it("api config is the same as site config, except without session", () => {
+      const api = def.config("api")
+      const site = def.config("site")
+      // remove the session config
+      delete site.session
+      // then they are the same
+      expect(api).toEqual(site)
     })
+
   })
 })

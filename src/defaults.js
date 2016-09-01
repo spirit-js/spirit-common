@@ -11,7 +11,7 @@ const random_string = () => {
   return Date.now().toString() + Math.random().toString()
 }
 
-const config = (key) => {
+const config = (key="") => {
   const cfg = {
   // every config uses these
   api: {
@@ -38,7 +38,6 @@ const config = (key) => {
   }
   }
 
-  key = key || "site"
   const keylc = key.toLowerCase()
   if (cfg[keylc]) {
     if (keylc === "api") return cfg.api
