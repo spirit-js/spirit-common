@@ -4,3 +4,4 @@ notes
 benchmarks/runner
 coverage/
 npm-debug.log
+.DS_Store

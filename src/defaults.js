@@ -5,7 +5,6 @@ const middleware = require("./middleware")
 
 // express middleware
 const body_parser = require("body-parser")
-//const cookie_parser = require("cookie-parser")
 const express_session = require("express-session")
 
 const random_string = () => {

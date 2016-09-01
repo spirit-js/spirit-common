@@ -1,4 +1,4 @@
-//const def = require("../lib/defaults")
+"use strict"
 const rewire = require("rewire")
 const def = rewire("../lib/defaults")
 

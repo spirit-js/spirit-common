@@ -1,3 +1,4 @@
+"use strict"
 const log = require("../../index").middleware.log
 const Promise = require("bluebird")
 
@@ -100,7 +101,7 @@ describe("Middleware: log", () => {
       done()
     })
   })
- 
+
 })
 
 describe("visual test", () => {
