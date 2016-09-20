@@ -1,6 +1,6 @@
 {
   "name": "spirit-common",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "common http middlewares for spirit",
   "main": "index.js",
   "scripts": {
@@ -32,7 +32,7 @@
     "bluebird": "3.4.x",
     "body-parser": "1.15.x",
     "express-session": "1.14.x",
-    "spirit": "0.2.x",
+    "spirit": "0.3.x",
     "spirit-express": "0.2.x"
   }
 }
